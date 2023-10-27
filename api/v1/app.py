@@ -1,40 +1,50 @@
 #!/usr/bin/python3
-"""main app file for Flask instance in REST API
-"""
-from flask import Flask
-from flask import jsonify
+'''Contains a Flask web application API.
+'''
+import os
+from flask import Flask, jsonify
 from flask_cors import CORS
+
 from models import storage
 from api.v1.views import app_views
-import os
+
 
 app = Flask(__name__)
+'''The Flask web application instance.'''
+app_host = os.getenv('HBNB_API_HOST', '0.0.0.0')
+app_port = int(os.getenv('HBNB_API_PORT', '5000'))
+app.url_map.strict_slashes = False
 app.register_blueprint(app_views)
-CORS(app, resources={r'/*': {'origins': '0.0.0.0'}})
+CORS(app, resources={'/*': {'origins': app_host}})
 
 
-def page_not_found(e):
-    """404 error json response"""
-    return jsonify({'error': "Not found"}), 404
-
-
-@app.teardown_appcontent
-def teardown_appcontext(exc=None):
-    """called on teardown of app context of flask
-    """
+@app.teardown_appcontext
+def teardown_flask(exception):
+    '''The Flask app/request context end event listener.'''
+    # print(exception)
     storage.close()
 
 
-if __name__ == "__main__":
-    """run the app if script is not being imported
-    """
-    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
-    app.register_error_handler(404, page_not_found)
-    fetched_host = os.environ.get('HBNB_API_HOST')
-    fetched_port = os.environ.get('HBNB_API_PORT')
-    if fetched_host is None:
-        fetched_host = '0.0.0.0'
-    if fetched_port is None:
-        fetched_port = 5000
-    app.run(host=fetched_host, port=fetched_port, threaded=True)
+@app.errorhandler(404)
+def error_404(error):
+    '''Handles the 404 HTTP error code.'''
+    return jsonify(error='Not found'), 404
 
+
+@app.errorhandler(400)
+def error_400(error):
+    '''Handles the 400 HTTP error code.'''
+    msg = 'Bad request'
+    if isinstance(error, Exception) and hasattr(error, 'description'):
+        msg = error.description
+    return jsonify(error=msg), 400
+
+
+if __name__ == '__main__':
+    app_host = os.getenv('HBNB_API_HOST', '0.0.0.0')
+    app_port = int(os.getenv('HBNB_API_PORT', '5000'))
+    app.run(
+        host=app_host,
+        port=app_port,
+        threaded=True
+    )
